@@ -11,6 +11,7 @@ import com.zimbra.common.service.ServiceException;
 import com.zimbra.common.soap.AdminConstants;
 import com.zimbra.common.soap.Element;
 import com.zimbra.cs.account.AttributeFlag;
+import com.zimbra.cs.account.AttributeInfo;
 import com.zimbra.cs.account.AttributeManager;
 import com.zimbra.cs.account.AuthToken;
 import com.zimbra.cs.account.Domain;
@@ -20,10 +21,17 @@ import com.zimbra.cs.account.StoreAttributeManager;
 import com.zimbra.cs.account.accesscontrol.AdminRight;
 import com.zimbra.soap.ZimbraSoapContext;
 import java.util.List;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.Set;
 
 public class GetDomainInfo extends AdminDocumentHandler {
+
+  private static final ResourceBundle defaultBranding =
+      ResourceBundle.getBundle("com.blue3.mailbox.branding", Locale.ROOT);
 
   private static final Set<String> bootstrapInfoAttrs =
       Set.of(
@@ -55,6 +63,8 @@ public class GetDomainInfo extends AdminDocumentHandler {
           ZAttrProvisioning.A_carbonioWebUiFavicon,
           ZAttrProvisioning.A_carbonioWebUiTitle,
           ZAttrProvisioning.A_carbonioWebUiDescription,
+          ZAttrProvisioning.A_carbonioWebUiPrimaryColor,
+          ZAttrProvisioning.A_carbonioWebUiDarkPrimaryColor,
           ZAttrProvisioning.A_carbonioAdminUiLoginLogo,
           ZAttrProvisioning.A_carbonioAdminUiDarkLoginLogo,
           ZAttrProvisioning.A_carbonioAdminUiAppLogo,
@@ -120,7 +130,26 @@ public class GetDomainInfo extends AdminDocumentHandler {
     return response;
   }
 
-  private void addAttrElementIfNotNull(Entry entry, Element element, String key)
+  private String brandingValue(Entry entry, String key, boolean applyConfig)
+      throws ServiceException {
+    String value = entry.getAttr(key, null);
+    if (!applyConfig || !defaultBranding.containsKey(key)
+        || (entry instanceof Domain && entry.getAttr(key, false) != null)) {
+      return value;
+    }
+    if (value != null) {
+      AttributeInfo info = StoreAttributeManager.getInstance().getAttributeInfo(key);
+      for (String builtIn : info.getGlobalConfigValues()) {
+        if (value.equals(builtIn)) {
+          return defaultBranding.getString(key);
+        }
+      }
+      return value;
+    }
+    return defaultBranding.getString(key);
+  }
+
+  private void addAttrElementIfNotNull(Entry entry, Element element, String key, boolean applyConfig)
       throws ServiceException {
     if (StoreAttributeManager.getInstance().isMultiValued(key)) {
       for (String value : entry.getMultiAttr(key)) {
@@ -130,7 +159,7 @@ public class GetDomainInfo extends AdminDocumentHandler {
             .setText(value);
       }
     } else {
-      String value = entry.getAttr(key, null);
+      String value = brandingValue(entry, key, applyConfig);
       if (value != null) {
         element
             .addNonUniqueElement(AdminConstants.E_A)
@@ -148,7 +177,7 @@ public class GetDomainInfo extends AdminDocumentHandler {
       domain.addAttribute(AdminConstants.A_ID, "VALUE-BLOCKED");
       if (entry != null) {
         for (String attr : bootstrapInfoAttrs) {
-          addAttrElementIfNotNull(entry, domain, attr);
+          addAttrElementIfNotNull(entry, domain, attr, applyConfig);
         }
       }
       return;
@@ -163,9 +192,15 @@ public class GetDomainInfo extends AdminDocumentHandler {
       domain.addAttribute(AdminConstants.A_NAME, "globalconfig");
       domain.addAttribute(AdminConstants.A_ID, "globalconfig-dummy-id");
     }
-    Set<String> attrList =
-        StoreAttributeManager.getInstance().getAttrsWithFlag(AttributeFlag.domainInfo);
-    Map<String, Object> attrsMap = entry.getUnicodeAttrs(applyConfig);
+    Set<String> attrList = new HashSet<>(
+        StoreAttributeManager.getInstance().getAttrsWithFlag(AttributeFlag.domainInfo));
+    Map<String, Object> attrsMap = new HashMap<>(entry.getUnicodeAttrs(applyConfig));
+    if (applyConfig) {
+      for (String key : defaultBranding.keySet()) {
+        attrsMap.put(key, brandingValue(entry, key, true));
+        attrList.add(key);
+      }
+    }
 
     for (String name : attrList) {
       Object value = attrsMap.get(name);

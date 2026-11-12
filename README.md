@@ -1,4 +1,10 @@
-# Carbonio Mailbox
+# Blue3 Mailbox
+
+![Blue3](branding/blue3/blue3-marca.png)
+
+Blue3-branded fork of [Carbonio Mailbox](https://github.com/zextras/carbonio-mailbox).
+The backend's default branding values and the original Blue3 light/dark marks
+are documented in [branding/blue3](branding/blue3/README.md).
 
 ![Contributors](https://img.shields.io/github/contributors/zextras/carbonio-mailbox "Contributors") ![Activity](https://img.shields.io/github/commit-activity/m/zextras/carbonio-mailbox "Activity") ![License](https://img.shields.io/badge/license-GPL%202-green
 "License") ![Project](https://img.shields.io/badge/project-carbonio-informational
